@@ -1,0 +1,25 @@
+{
+  "name": "gitdou",
+  "description": "Implement Git in JavaScript for study",
+  "author": "Notechsolution <notech@126.com>",
+  "version": "0.1.0",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/notechsolution/gitdou.git"
+  },
+  "main": "./gitdou.js",
+  "bin": {
+    "gitlet": "./gitdou.js"
+  },
+  "scripts": {
+    "test": "ava"
+  },
+  "devDependencies": {
+    "ava": "1.0.0-beta.6"
+  },
+  "ava": {
+    "files": [
+      "./test/specs/**/*.js"
+    ]
+  }
+}
