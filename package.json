@@ -19,7 +19,11 @@
   },
   "ava": {
     "files": [
-      "./test/specs/**/*.js"
+      "./test/specs/**/*.js",
+      "!test/specs/test-util.js"
     ]
+  },
+  "dependencies": {
+    "lodash": "^4.17.10"
   }
 }
