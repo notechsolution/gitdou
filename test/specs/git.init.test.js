@@ -4,7 +4,7 @@ import fs from 'fs';
 import testUtil from './test-util'
 
 test.beforeEach(() => {
-    testUtil.initTestDataDir();
+    testUtil.initTestDataDir({repo:'initRepo'});
 });
 
 test('hello world', t=> {
@@ -13,11 +13,11 @@ test('hello world', t=> {
 
 test('git.init() should create all related files under /.gitdou', t => {
     gitdou.init();
-    t.true(fs.existsSync(`${__dirname}/testdata/repo1/.gitdou`));
-    t.true(fs.existsSync(`${__dirname}/testdata/repo1/.gitdou/objects/`));
-    t.true(fs.existsSync(`${__dirname}/testdata/repo1/.gitdou/refs/heads/`));
-    t.is(fs.readFileSync(`${__dirname}/testdata/repo1/.gitdou/HEAD`,'utf-8'), 'ref: refs/heads/master\n');
-    t.is(fs.readFileSync(__dirname + "/testData/repo1/.gitdou/config",'utf-8'),
+    t.true(fs.existsSync(`${__dirname}/testdata/initRepo/.gitdou`));
+    t.true(fs.existsSync(`${__dirname}/testdata/initRepo/.gitdou/objects/`));
+    t.true(fs.existsSync(`${__dirname}/testdata/initRepo/.gitdou/refs/heads/`));
+    t.is(fs.readFileSync(`${__dirname}/testdata/initRepo/.gitdou/HEAD`,'utf-8'), 'ref: refs/heads/master\n');
+    t.is(fs.readFileSync(__dirname + "/testData/initRepo/.gitdou/config",'utf-8'),
        "{\n" +
         "  \"core\": {\n" +
         "    \"bare\": false\n" +
@@ -28,11 +28,11 @@ test('git.init() should create all related files under /.gitdou', t => {
 test('git.init() should not crash when call twice', t => {
     gitdou.init();
     gitdou.init();
-    t.true(fs.existsSync(`${__dirname}/testdata/repo1/.gitdou`));
-    t.true(fs.existsSync(`${__dirname}/testdata/repo1/.gitdou/objects/`));
-    t.true(fs.existsSync(`${__dirname}/testdata/repo1/.gitdou/refs/heads/`));
-    t.is(fs.readFileSync(`${__dirname}/testdata/repo1/.gitdou/HEAD`,'utf-8'), 'ref: refs/heads/master\n');
-    t.is(fs.readFileSync(__dirname + "/testData/repo1/.gitdou/config",'utf-8'),
+    t.true(fs.existsSync(`${__dirname}/testdata/initRepo/.gitdou`));
+    t.true(fs.existsSync(`${__dirname}/testdata/initRepo/.gitdou/objects/`));
+    t.true(fs.existsSync(`${__dirname}/testdata/initRepo/.gitdou/refs/heads/`));
+    t.is(fs.readFileSync(`${__dirname}/testdata/initRepo/.gitdou/HEAD`,'utf-8'), 'ref: refs/heads/master\n');
+    t.is(fs.readFileSync(__dirname + "/testData/initRepo/.gitdou/config",'utf-8'),
         "{\n" +
         "  \"core\": {\n" +
         "    \"bare\": false\n" +

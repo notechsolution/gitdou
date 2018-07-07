@@ -55,7 +55,7 @@ var testUtil = module.exports = {
   },
 
   index: function() {
-    return (fs.existsSync(".gitlet/index") ? fs.readFileSync(".gitlet/index", "utf8") : "\n")
+    return (fs.existsSync(".gitdou/index") ? fs.readFileSync(".gitdou/index", "utf8") : "\n")
       .split("\n")
       .filter(function(l) { return l !== ""; })
       .map(function(blobStr) {
@@ -64,8 +64,9 @@ var testUtil = module.exports = {
       });
   },
 
-  initTestDataDir: function() {
-    var testDataDir = __dirname + "/testData";
+  initTestDataDir: function(option) {
+    const repo = option? option.repo:'repo1';
+    var testDataDir = __dirname + "/testData/"+repo;
     process.chdir(__dirname)
     if (fs.existsSync(testDataDir)) {
       testUtil.rmdirSyncRecursive(testDataDir);
@@ -73,8 +74,9 @@ var testUtil = module.exports = {
 
     fs.mkdirSync(testDataDir);
     process.chdir(testDataDir);
-    fs.mkdirSync("repo1");
-    process.chdir("repo1");
+
+    // fs.mkdirSync(repo);
+    // process.chdir(repo);
     // expect(fs.readdirSync(process.cwd()).length).toEqual(0);
   },
 
