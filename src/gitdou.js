@@ -17,8 +17,24 @@ const gitdou = {
     },
     add : path => {
         const addedFiles = files.listAllMatchedFiles(path);
-        console.log(addedFiles);
+        // console.log(addedFiles);
         index.updateFilesIntoIndex(addedFiles);
+    },
+    commit: option => {
+        // write current index into tree object
+        const treeHash = gitdou.write_tree();
+        // create commit object based on the tree hash
+        const parentHash = "";
+        const commitHash = objects.createCommit({treeHash,parentHash, option} );
+        console.log(`commitHash ${commitHash}`);
+        // point the HEAD to commit hash
+        refs.updateRef({updateToRef:'HEAD', hash:commitHash})
+    },
+
+    write_tree : () => {
+        const idx = index.read(false);
+        const tree = files.nestFlatTree(idx);
+        return objects.writeTree(tree);
     }
 };
 
@@ -59,8 +75,12 @@ const files = {
     },
     getGitdouPath : ()=>{
         return nodepath.join(process.cwd(), '.gitdou');
+    },
+    nestFlatTree : object => {
+        return Object.keys(object).reduce((tree, key) => {
+            return _.set(tree, _.replace(key, /\\/g,'.'), object[key]);
+        }, {});
     }
-
 }
 
 const index = {
@@ -70,39 +90,76 @@ const index = {
         // add new hash into index
         const allIndex = index.read();
         _.each(addedFiles, addedFile => {
-            allIndex[`${addedFile},0`] = objects.write(addedFile);
+            allIndex[`${addedFile},0`] = objects.write(fs.readFileSync(addedFile,"utf8"));
         });
         index.write(allIndex);
     },
-    read : () => {
+    read : (withFileState=true) => {
         const indexPath = nodepath.join(files.getGitdouPath(),'index');
         if(!fs.existsSync(indexPath)){
             console.warn('strange, no index file found');
             return [];
         }
-        const indexLines = fs.readFileSync(indexPath).split(eol).filter(line => !_.isEmpty(line));
+        const indexLines = fs.readFileSync(indexPath,'utf8').split(eol).filter(line => !_.isEmpty(line));
         return indexLines.reduce((allIndex, line) => {
             const blobData = line.split(/ /);
-            allIndex[`${blobData[0]},${blobData[1]}`] = blobData[2];
-         }, {});
+            const key = withFileState? `${blobData[0]},${blobData[1]}`: blobData[0];
+            allIndex[key] = blobData[2];
+            return allIndex;
+        }, {});
     },
     write : allIndex => {
         const content = Object.keys(allIndex).map(key=> key.split(',')[0]+' '+key.split(',')[1]+' '+allIndex[key])
-            .join('\n')+'\n';
+            .join(eol)+eol;
         fs.writeFileSync(nodepath.join(files.getGitdouPath(), 'index'), content);
-    }
+    },
 }
 
 const objects = {
-    write : path => {
+    write : content => {
         // calculate hash
-        const content = fs.readFileSync(path,"utf8");
         const hash = util.hash(content);
         // save content into file
         const objectPath = nodepath.join(files.getGitdouPath(), 'objects', hash);
         fs.writeFileSync(objectPath,content);
         return hash;
         // return hash
+    },
+    writeTree: tree => {
+        const items = Object.keys(tree).map(key => {
+            if (_.isString(tree[key])) {
+                return `blob ${tree[key]} ${key}`;
+            } else {
+                return `tree ${objects.writeTree(tree[key])} ${key}`;
+            }
+        });
+        const treeContent =  items.join(eol)+eol;
+        return objects.write(treeContent);
+    },
+    createCommit:({treeHash,parentHash, option} ) => {
+        const content = [];
+        content.push(`commit ${treeHash}`);
+        _.each(parentHash, hash=>content.push(`parent ${hash}`));
+        content.push(`Date:  ${new Date().toString()}`);
+        content.push(`\n${option.m}`);
+        return objects.write(content.join('\n'));
+    }
+}
+
+const refs = {
+    updateRef : ({updateToRef, hash}) => {
+       const ref = refs.resolveRef(updateToRef);
+       refs.write(ref, hash);
+    },
+    resolveRef : ref => {
+        if(ref === 'HEAD'){
+            const matched = fs.readFileSync(nodepath.join(files.getGitdouPath(),ref),'utf8').match('ref: (refs/heads/.+)');
+            return matched[1];
+        }
+    },
+    write: (path, content)=>{
+        const target = nodepath.join(files.getGitdouPath(),path);
+        fs.writeFileSync(target, content);
     }
 }
 const util = {
@@ -110,17 +167,10 @@ const util = {
         let hashInt = 0;
         console.log('string:',string);
         for(let i=0; i< string.length; i++){
+            // hashInt = (hashInt *31) + string.charCodeAt(i);
             hashInt = (hashInt << 5) + string.charCodeAt(i);
             hashInt = hashInt | 0;
         }
         return Math.abs(hashInt).toString(16);
-
-        // var hashInt = 0;
-        // for (var i = 0; i < string.length; i++) {
-        //     hashInt = hashInt * 31 + string.charCodeAt(i);
-        //     hashInt = hashInt | 0;
-        // }
-        //
-        // return Math.abs(hashInt).toString(16);
     }
 }
