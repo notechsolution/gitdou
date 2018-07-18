@@ -26,15 +26,19 @@ const gitdou = {
         // create commit object based on the tree hash
         const parentHash = "";
         const commitHash = objects.createCommit({treeHash,parentHash, option} );
-        console.log(`commitHash ${commitHash}`);
+        // console.log(`commitHash ${commitHash}`);
         // point the HEAD to commit hash
         refs.updateRef({updateToRef:'HEAD', hash:commitHash})
     },
+    checkout : (commitHash) => {
+        console.log(`target hash is ${commitHash}`);
 
+    },
     write_tree : () => {
         const idx = index.read(false);
         const tree = files.nestFlatTree(idx);
-        return objects.writeTree(tree);
+        // console.log(`tree:${JSON.stringify(tree)}, hash:${objects.writeTree(tree)}`)
+        return objects.writeTree(tree,true);
     }
 };
 
@@ -125,7 +129,8 @@ const objects = {
         return hash;
         // return hash
     },
-    writeTree: tree => {
+    writeTree: (tree,first = false) => {
+        // first && console.log(`tree: ${JSON.stringify(tree)}`);
         const items = Object.keys(tree).map(key => {
             if (_.isString(tree[key])) {
                 return `blob ${tree[key]} ${key}`;
@@ -133,7 +138,9 @@ const objects = {
                 return `tree ${objects.writeTree(tree[key])} ${key}`;
             }
         });
-        const treeContent =  items.join(eol)+eol;
+        const treeContent =  items.join('\n')+'\n';
+
+        tree['fileb'] && console.log(`treeContent:${treeContent} | commitHash:${objects.write(treeContent)}`)
         return objects.write(treeContent);
     },
     createCommit:({treeHash,parentHash, option} ) => {
@@ -163,14 +170,24 @@ const refs = {
     }
 }
 const util = {
-    hash : string => {
-        let hashInt = 0;
-        console.log('string:',string);
-        for(let i=0; i< string.length; i++){
-            // hashInt = (hashInt *31) + string.charCodeAt(i);
-            hashInt = (hashInt << 5) + string.charCodeAt(i);
+    // hash : string => {
+    //     let hashInt = 0;
+    //
+    //     for(let i=0; i< string.length; i++){
+    //         (hashInt<<5) may cause hash conflict
+    //         hashInt = (hashInt << 5) + string.charCodeAt(i);
+    //         hashInt = hashInt | 0;
+    //     }
+    //     return Math.abs(hashInt).toString(16);
+    // },
+    hash: function(string) {
+        var hashInt = 0;
+        for (var i = 0; i < string.length; i++) {
+            hashInt = hashInt * 31 + string.charCodeAt(i);
             hashInt = hashInt | 0;
         }
+
         return Math.abs(hashInt).toString(16);
-    }
+    },
+
 }
