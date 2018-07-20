@@ -4,18 +4,18 @@ import gitdou from '../../src/gitdou';
 import fs from 'fs'
 
 test.beforeEach(()=> {
-    testUtil.initTestDataDir({repo:'checkoutRepo'});
     testUtil.pinDate();
 });
 test.afterEach(() => {
   testUtil.unpinDate();
 })
 
-test("working space refer to target commit snapshot", t => {
+test("file change should show after checkout", t => {
+    testUtil.initTestDataDir({repo:'checkoutRepo1'});
     gitdou.init();
     testUtil.createStandardFileStructure();
     gitdou.add("1b");
-    gitdou.commit({ m: "first commit" }); // commit hash should be 41a09aa
+    gitdou.commit({ m: "first commit" }); // commit hash should be 3bd85bc7
     var commitFile = fs.readFileSync(".gitdou/objects/3bd85bc7", "utf8");
     t.is(commitFile.split("\n")[0], "commit 391566d4");
     t.is(commitFile.split("\n")[1],
@@ -27,6 +27,48 @@ test("working space refer to target commit snapshot", t => {
     gitdou.add("1b");
     gitdou.commit({ m: "second commit" });
 
-    gitdou.checkout('41a09aa') // checkout first commit;
+    gitdou.checkout('3bd85bc7') // checkout first commit;
     t.is(fs.readFileSync('1b/fileb','utf8'),'fileb');
+});
+
+test("deleted file should not show after checkout", t => {
+    testUtil.initTestDataDir({repo:'checkoutRepo2'});
+    gitdou.init();
+    testUtil.createStandardFileStructure();
+    gitdou.add("1b");
+    gitdou.commit({ m: "first commit" }); // commit hash should be 3bd85bc7
+    var commitFile = fs.readFileSync(".gitdou/objects/3bd85bc7", "utf8");
+    t.is(commitFile.split("\n")[0], "commit 391566d4");
+    t.is(commitFile.split("\n")[1],
+        "Date:  Sat Aug 30 2014 09:16:45 GMT-0400 (EDT)");
+    t.is(commitFile.split("\n")[2],"");
+    t.is(commitFile.split("\n")[3],"first commit");
+
+    fs.unlinkSync('1b/fileb');
+    gitdou.add("1b");
+    gitdou.commit({ m: "second commit" });
+
+    gitdou.checkout('3bd85bc7') // checkout first commit;
+    t.false(fs.existsSync('1b/fileb'));
+});
+
+test("added file should show after checkout", t => {
+    testUtil.initTestDataDir({repo:'checkoutRepo3'});
+    gitdou.init();
+    testUtil.createStandardFileStructure();
+    gitdou.add("1b");
+    gitdou.commit({ m: "first commit" }); // commit hash should be 3bd85bc7
+    var commitFile = fs.readFileSync(".gitdou/objects/3bd85bc7", "utf8");
+    t.is(commitFile.split("\n")[0], "commit 391566d4");
+    t.is(commitFile.split("\n")[1],
+        "Date:  Sat Aug 30 2014 09:16:45 GMT-0400 (EDT)");
+    t.is(commitFile.split("\n")[2],"");
+    t.is(commitFile.split("\n")[3],"first commit");
+
+    fs.writeFileSync('1b/fileabcd', 'something in fileabcd');
+    gitdou.add("1b");
+    gitdou.commit({ m: "second commit" });
+
+    gitdou.checkout('3bd85bc7') // checkout first commit;
+    t.false(fs.existsSync('1b/fileabcd'));
 });
