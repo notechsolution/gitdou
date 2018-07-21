@@ -19,7 +19,12 @@ const gitdou = {
     add: path => {
         const addedFiles = files.listAllMatchedFiles(path);
         // console.log(addedFiles);
-        index.updateFilesIntoIndex(addedFiles);
+        index.updateFilesIntoIndex(addedFiles,{add:true});
+    },
+    rm: path => {
+        const deletedFiles = files.listAllMatchedFiles(path);
+        index.updateFilesIntoIndex(deletedFiles,{remove:true});
+        files.removeFiles(deletedFiles);
     },
     commit: option => {
         // write current index into tree object
@@ -34,6 +39,9 @@ const gitdou = {
     checkout: (commitHash) => {
         const diffs = diff.diff(refs.hash('HEAD'), commitHash);
         workingCopy.write(diffs);
+    },
+    status: () => {
+        return status.getStatus();
     },
     write_tree: () => {
         const idx = index.read(false);
@@ -69,7 +77,7 @@ const files = {
         }
 
         if (fs.statSync(path).isFile()) {
-            return [path];
+            return [nodepath.normalize(path)];
         }
         return fs.readdirSync(path).reduce((fileList, childDir) => {
             if (childDir === '.gitdou') {
@@ -116,18 +124,31 @@ const files = {
             }
         })
         return flattenObject;
+    },
+    removeFiles: paths => {
+        _.each(paths, path => fs.unlinkSync(path));
     }
 }
 
 const index = {
-    updateFilesIntoIndex: addedFiles => {
+    updateFilesIntoIndex: (files, opts) => {
         // read existing index list from index file
         // calculate addedFiles hash
         // add new hash into index
         const allIndex = index.read();
-        _.each(addedFiles, addedFile => {
-            allIndex[`${addedFile},0`] = objects.write(fs.readFileSync(addedFile, "utf8"));
-        });
+        if(opts.add){
+            _.each(files, addedFile => {
+                allIndex[`${addedFile},0`] = objects.write(fs.readFileSync(addedFile, "utf8"));
+            });
+        }
+        if(opts.remove){
+            _.each(files, deletedFile => {
+                delete allIndex[`${deletedFile},0`];
+                console.log('remove file from index',`${deletedFile},0`)
+                console.log(allIndex);
+            });
+        }
+
         index.write(allIndex);
     },
     read: (withFileState = true) => {
@@ -308,5 +329,30 @@ const workingCopy = {
     },
     getPath : (path)=>{
         return nodepath.join(files.getGitdouPath(),'..',path);
+    }
+}
+
+const status = {
+    getStatus: () => {
+        const allFiles = files.listAllMatchedFiles('.');
+        const idx = index.read(false);
+        const untrackedFiles = () => {
+            return allFiles.reduce((untracks, path)=>{
+                !idx[path] && untracks.push(path);
+                return untracks;
+            },[]).join('\n');
+
+        }
+        const toBeCommitted = () => {
+            const headContent = objects.commitToContent(refs.hash('HEAD'));
+            const diffs = diff.treeContentDiff(headContent, idx);
+            console.log(`diffs:${JSON.stringify(_.values(diffs))}`)
+            return _.values(diffs).filter(diffItem => diffItem.status !== diff.FILE_STATUS.SAME).reduce((tobes, item) => {
+                tobes.push(`${item.status} ${item.path}`);
+                return tobes;
+            }, []).join('\n');
+        }
+        return 'Untracked files:\n'+untrackedFiles() +'\n'
+            + 'Changes to be committed:\n'+toBeCommitted();
     }
 }
