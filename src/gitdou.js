@@ -19,11 +19,11 @@ const gitdou = {
     add: path => {
         const addedFiles = files.listAllMatchedFiles(path);
         // console.log(addedFiles);
-        index.updateFilesIntoIndex(addedFiles,{add:true});
+        index.updateFilesIntoIndex(addedFiles, {add: true});
     },
     rm: path => {
         const deletedFiles = files.listAllMatchedFiles(path);
-        index.updateFilesIntoIndex(deletedFiles,{remove:true});
+        index.updateFilesIntoIndex(deletedFiles, {remove: true});
         files.removeFiles(deletedFiles);
     },
     commit: option => {
@@ -42,6 +42,10 @@ const gitdou = {
     },
     status: () => {
         return status.getStatus();
+    },
+    branch : (name, opts) => {
+        const hash = refs.hash('HEAD');
+        refs.updateRef({updateToRef:name, hash});
     },
     write_tree: () => {
         const idx = index.read(false);
@@ -127,6 +131,9 @@ const files = {
     },
     removeFiles: paths => {
         _.each(paths, path => fs.unlinkSync(path));
+    },
+    hash : filePath => {
+        return util.hash(fs.readFileSync(filePath,'utf8'));
     }
 }
 
@@ -136,16 +143,14 @@ const index = {
         // calculate addedFiles hash
         // add new hash into index
         const allIndex = index.read();
-        if(opts.add){
+        if (opts.add) {
             _.each(files, addedFile => {
                 allIndex[`${addedFile},0`] = objects.write(fs.readFileSync(addedFile, "utf8"));
             });
         }
-        if(opts.remove){
+        if (opts.remove) {
             _.each(files, deletedFile => {
                 delete allIndex[`${deletedFile},0`];
-                console.log('remove file from index',`${deletedFile},0`)
-                console.log(allIndex);
             });
         }
 
@@ -240,6 +245,8 @@ const refs = {
         if (ref === 'HEAD') {
             const matched = fs.readFileSync(nodepath.join(files.getGitdouPath(), ref), 'utf8').match('ref: (refs/heads/.+)');
             return matched[1];
+        } else {
+            return `refs/heads/${ref}`;
         }
     },
     write: (path, content) => {
@@ -278,7 +285,7 @@ const util = {
 }
 
 const diff = {
-    FILE_STATUS : {ADD:'A', MODIFY:'M',DELETE:'D',SAME:'SAME', CONFLICT:'CONFLICT'},
+    FILE_STATUS: {ADD: 'A', MODIFY: 'M', DELETE: 'D', SAME: 'SAME', CONFLICT: 'CONFLICT'},
     diff: (receiverHash, giverHash) => {
         const receiver = objects.commitToContent(receiverHash);
         const giver = objects.commitToContent(giverHash);
@@ -288,28 +295,28 @@ const diff = {
     },
     treeContentDiff: (receiver, giver) => {
         const paths = _.uniq(Object.keys(receiver).concat(Object.keys(giver)));
-        return paths.reduce((diffs,path)=>{
+        return paths.reduce((diffs, path) => {
             diffs[path] = {
-                status:diff.fileStatus(receiver[path], giver[path]),
-                receiver:receiver[path],
-                path:path,
+                status: diff.fileStatus(receiver[path], giver[path]),
+                receiver: receiver[path],
+                path: path,
                 giver: giver[path]
             };
             return diffs;
-        },{})
+        }, {})
 
     },
-    fileStatus : (receiver, giver) => {
-        if(receiver===giver){
+    fileStatus: (receiver, giver) => {
+        if (receiver === giver) {
             return diff.FILE_STATUS.SAME;
         }
-        if(!receiver && giver){
+        if (!receiver && giver) {
             return diff.FILE_STATUS.ADD;
         }
-        if(receiver && !giver){
+        if (receiver && !giver) {
             return diff.FILE_STATUS.DELETE
         }
-        if(receiver && giver){
+        if (receiver && giver) {
             return diff.FILE_STATUS.MODIFY;
         }
     }
@@ -327,8 +334,14 @@ const workingCopy = {
             }
         });
     },
-    getPath : (path)=>{
-        return nodepath.join(files.getGitdouPath(),'..',path);
+    getPath: (path) => {
+        return nodepath.join(files.getGitdouPath(), '..', path);
+    },
+    toContent : (idx) => {
+        return Object.keys(idx).filter(filePath => fs.existsSync(filePath)).reduce((index, filePath) => {
+            index[filePath] = files.hash(filePath);
+            return index;
+        }, {})
     }
 }
 
@@ -337,22 +350,26 @@ const status = {
         const allFiles = files.listAllMatchedFiles('.');
         const idx = index.read(false);
         const untrackedFiles = () => {
-            return allFiles.reduce((untracks, path)=>{
+            return allFiles.reduce((untracks, path) => {
                 !idx[path] && untracks.push(path);
                 return untracks;
-            },[]).join('\n');
+            }, []).join('\n');
 
         }
         const toBeCommitted = () => {
             const headContent = objects.commitToContent(refs.hash('HEAD'));
             const diffs = diff.treeContentDiff(headContent, idx);
-            console.log(`diffs:${JSON.stringify(_.values(diffs))}`)
-            return _.values(diffs).filter(diffItem => diffItem.status !== diff.FILE_STATUS.SAME).reduce((tobes, item) => {
-                tobes.push(`${item.status} ${item.path}`);
-                return tobes;
-            }, []).join('\n');
+            return _.values(diffs).filter(diffItem => diffItem.status !== diff.FILE_STATUS.SAME)
+                .map(item => `${item.status} ${item.path}`).join('\n');
         }
-        return 'Untracked files:\n'+untrackedFiles() +'\n'
-            + 'Changes to be committed:\n'+toBeCommitted();
+        const notStagedForCommit = ()=>{
+            const workingCopyContent = workingCopy.toContent(idx);
+            const diffs = diff.treeContentDiff(idx, workingCopyContent);
+            return _.values(diffs).filter(diffItem => diffItem.status !== diff.FILE_STATUS.SAME)
+                .map(item => `${item.status} ${item.path}`).join('\n');
+        }
+        return 'Untracked files:\n' + untrackedFiles() + '\n'
+            + 'Changes to be committed:\n' + toBeCommitted()+'\n'
+            + 'Changes not staged for commit:\n' + notStagedForCommit();
     }
 }

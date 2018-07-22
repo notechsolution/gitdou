@@ -45,4 +45,19 @@ test("should mention that there is change to commit", t => {
 
 });
 
-test.todo("added file should show after checkout");
+test("should mention unstage change", t=>{
+    testUtil.initTestDataDir({repo:'statusRepo3'});
+    gitdou.init();
+    testUtil.createStandardFileStructure();
+    gitdou.add(".");
+    gitdou.commit({ m: "first commit" }); // commit hash should be 3bd85bc7
+
+    fs.writeFileSync('1b/fileb', 'modified content');
+    fs.unlinkSync('1b/2b/filec')
+    const status = gitdou.status();
+    const expectedContent = 'Changes not staged for commit:\n' +
+        'D 1b\\\\2b\\\\filec\n'+
+        'M 1b\\\\fileb';
+
+    t.true(new RegExp(expectedContent).test(status));
+});
