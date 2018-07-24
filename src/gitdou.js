@@ -47,6 +47,15 @@ const gitdou = {
         const hash = refs.hash('HEAD');
         refs.updateRef({updateToRef:name, hash});
     },
+    remote : (command, name, path) => {
+        const cfg = config.read();
+        cfg['remote'] = cfg['remote'] || {};
+        cfg['remote'][name] = path;
+        config.write(cfg);
+    },
+    fetch : () => {
+
+    },
     write_tree: () => {
         const idx = index.read(false);
         const tree = files.nestFlatTree(idx);
@@ -371,5 +380,16 @@ const status = {
         return 'Untracked files:\n' + untrackedFiles() + '\n'
             + 'Changes to be committed:\n' + toBeCommitted()+'\n'
             + 'Changes not staged for commit:\n' + notStagedForCommit();
+    }
+}
+
+const config = {
+    read : ()=>{
+        const content = JSON.parse(fs.readFileSync(nodepath.join(files.getGitdouPath(),'config'), 'utf8'));
+        return content;
+    },
+    write: cfg => {
+        const content = JSON.stringify(cfg, null, 2);
+        fs.writeFileSync(nodepath.join(files.getGitdouPath(),'config'),content);
     }
 }
