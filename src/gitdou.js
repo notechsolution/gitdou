@@ -7,7 +7,7 @@ const encode = 'utf8'
 const gitdou = {
     init: () => {
         const gitdouStructure = {
-            HEAD: 'ref: refs/heads/master\n',
+            HEAD: 'ref: refs/heads/master',
             objects: {},
             refs: {
                 heads: {}
@@ -30,7 +30,7 @@ const gitdou = {
         // write current index into tree object
         const treeHash = gitdou.write_tree();
         // create commit object based on the tree hash
-        const parentHash = "";
+        const parentHash = refs.getParentHash();
         const commitHash = objects.createCommit({treeHash, parentHash, option});
         // console.log(`commitHash ${commitHash}`);
         // point the HEAD to commit hash
@@ -40,7 +40,8 @@ const gitdou = {
         const targetCommitHash = refs.hash(ref);
         const diffs = diff.diff(refs.hash('HEAD'), targetCommitHash);
         workingCopy.write(diffs);
-    },
+        refs.write('HEAD',`ref: ${refs.resolveRef(ref)}`);
+},
     status: () => {
         return status.getStatus();
     },
@@ -70,7 +71,12 @@ const gitdou = {
 
     },
     merge: (ref) => {
-        // return 'Fast-forward';
+        const receiverHash = refs.hash('HEAD');
+        const giverHash = refs.hash(ref);
+        if(merger.canFastForward({receiverHash, giverHash})){
+            return 'Fast-forward';
+        }
+        return 'Non Fast Foward, not handle now';
     },
     write_tree: () => {
         const idx = index.read(false);
@@ -229,7 +235,7 @@ const objects = {
     createCommit: ({treeHash, parentHash, option}) => {
         const content = [];
         content.push(`commit ${treeHash}`);
-        _.each(parentHash, hash => content.push(`parent ${hash}`));
+        _.each(parentHash, hash => hash && content.push(`parent ${hash}`));
         content.push(`Date:  ${new Date().toString()}`);
         content.push(`\n${option.m}`);
         return objects.write(content.join('\n'));
@@ -264,6 +270,27 @@ const objects = {
     },
     exists: hash => {
         return fs.existsSync(nodepath.join(files.getGitdouPath(),'objects', hash));
+    },
+    ancestors: hash => {
+        const parents = objects._parents(hash);
+        return parents.reduce((result, parent)=>{
+            result.push(parent);
+            return result.concat(objects.ancestors(parent));
+        },[])
+    },
+    _parents: hash => {
+        const hashContent = objects.read(hash);
+        if(objects.type(hashContent) === 'commit'){
+            const lines = _.split(hashContent, '\n');
+            return lines.filter(line=> !_.isEmpty(line)).reduce((parents,line)=>{
+                const [type,hash] = _.split(line,' ');
+                if(type==='parent'){
+                    parents.push(hash);
+                }
+                return parents;
+            },[])
+        }
+        return [];
     }
 }
 
@@ -274,8 +301,8 @@ const refs = {
     },
     resolveRef: ref => {
         if (ref === 'HEAD') {
-            const matched = fs.readFileSync(nodepath.join(files.getGitdouPath(), ref), 'utf8').match('ref: (refs/heads/.+)');
-            return matched[1];
+            const head = fs.readFileSync(nodepath.join(files.getGitdouPath(), ref), 'utf8');
+            return head.replace('ref: ','');
         } else if (refs.isValidRef(ref)){
             return ref;
         } else {
@@ -296,7 +323,10 @@ const refs = {
         }
         const refFile = refs.resolveRef(ref);
         const prefix = objects.exists(ref)?nodepath.join(files.getGitdouPath(),'objects'):files.getGitdouPath();
-        return fs.readFileSync(nodepath.join(prefix, refFile), 'utf8');
+        if(fs.existsSync(nodepath.join(prefix, refFile))){
+            return fs.readFileSync(nodepath.join(prefix, refFile), 'utf8');
+        }
+        return '';
     },
     getRemoteHash: (remoteUrl, branch)=> {
         return util.onRemote(remoteUrl)(refs.hash, branch);
@@ -306,6 +336,9 @@ const refs = {
     },
     getRemoteRef: (remote, branch) => {
         return `refs/remotes/${remote}/${branch}`;
+    },
+    getParentHash: ()=>{
+        return [refs.hash("HEAD")];
     }
 }
 const util = {
@@ -451,5 +484,13 @@ const config = {
     write: cfg => {
         const content = JSON.stringify(cfg, null, 2);
         fs.writeFileSync(nodepath.join(files.getGitdouPath(),'config'),content);
+    }
+}
+
+const merger = {
+    canFastForward: ({receiverHash, giverHash}) => {
+        const ancestors = objects.ancestors(giverHash);
+        console.log(`ancestors:${JSON.stringify(ancestors)} receiverHash:${receiverHash}`)
+        return _.includes(ancestors, receiverHash);
     }
 }

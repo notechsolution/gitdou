@@ -34,7 +34,7 @@ test('should fetch objects in the main branch of origin', t => {
     gitLocal.fetch('origin','master');
 
     ["552f010a", "63e0627e", "17653b6d", "5ceba65", // first commit
-        "509d4826", "794ea686", "507bf191", "5ceba66"] // second commit
+        "48028ed8", "794ea686", "507bf191", "5ceba66"] // second commit
         .forEach(function(h) {
             var exp = fs.readFileSync(nodepath.join(remoteRepo, ".gitdou", "objects", h), "utf8");
             t.is(fs.readFileSync(nodepath.join(".gitdou/objects", h),'utf8'), exp);
@@ -61,7 +61,7 @@ test('should update FETCH_HEAD after fetch', t=> {
     gitLocal.remote('add','origin',remoteRepo);
     gitLocal.fetch('origin','master');
 
-    t.true(_.startsWith(fs.readFileSync(nodepath.join('.gitdou','FETCH_HEAD'),'utf8'),'509d4826 branch \'master\' of '));
+    t.true(_.startsWith(fs.readFileSync(nodepath.join('.gitdou','FETCH_HEAD'),'utf8'),'48028ed8 branch \'master\' of '));
 })
 
 test('refs/remotes/origin should point to latest commit after fetch', t=> {
@@ -84,5 +84,5 @@ test('refs/remotes/origin should point to latest commit after fetch', t=> {
     gitLocal.remote('add','origin',remoteRepo);
     gitLocal.fetch('origin','master');
 
-    t.true(_.startsWith(fs.readFileSync(nodepath.join('.gitdou/refs/remotes/origin','master'),'utf8'),'509d4826'));
+    t.true(_.startsWith(fs.readFileSync(nodepath.join('.gitdou/refs/remotes/origin','master'),'utf8'),'48028ed8'));
 })

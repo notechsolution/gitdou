@@ -52,6 +52,22 @@ test("deleted file should not show after checkout", t => {
     t.false(fs.existsSync('1b/fileb'));
 });
 
+test("HEAD should point to latest branch", t => {
+    testUtil.initTestDataDir({repo:'checkoutRepo3'});
+    gitdou.init();
+    testUtil.createStandardFileStructure();
+    gitdou.add("1b");
+    gitdou.commit({ m: "first commit" }); // commit hash should be 3bd85bc7
+    gitdou.branch('other');
+
+    fs.writeFileSync('1b/fileabcd', 'something in fileabcd');
+    gitdou.add("1b");
+    gitdou.commit({ m: "second commit" });
+
+    gitdou.checkout('other') // checkout first commit;
+    t.is(fs.readFileSync('.gitdou/HEAD','utf8'),'ref: refs/heads/other');
+});
+
 test("added file should show after checkout", t => {
     testUtil.initTestDataDir({repo:'checkoutRepo3'});
     gitdou.init();
