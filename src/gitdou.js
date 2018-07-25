@@ -36,8 +36,9 @@ const gitdou = {
         // point the HEAD to commit hash
         refs.updateRef({updateToRef: 'HEAD', hash: commitHash})
     },
-    checkout: (commitHash) => {
-        const diffs = diff.diff(refs.hash('HEAD'), commitHash);
+    checkout: (ref) => {
+        const targetCommitHash = refs.hash(ref);
+        const diffs = diff.diff(refs.hash('HEAD'), targetCommitHash);
         workingCopy.write(diffs);
     },
     status: () => {
@@ -69,7 +70,7 @@ const gitdou = {
 
     },
     merge: (ref) => {
-
+        // return 'Fast-forward';
     },
     write_tree: () => {
         const idx = index.read(false);
@@ -260,6 +261,9 @@ const objects = {
     },
     allObjects : () => {
         return fs.readdirSync(nodepath.join(files.getGitdouPath(), 'objects')).map(objects.read);
+    },
+    exists: hash => {
+        return fs.existsSync(nodepath.join(files.getGitdouPath(),'objects', hash));
     }
 }
 
@@ -283,13 +287,16 @@ const refs = {
     },
 
     write: (path, content) => {
-        const tree = _.set({},path.split("/").join('.'),content);
+        const tree = util.setIn({},path.split("/").concat(content));
         files.writeFilesFromTree(tree,files.getGitdouPath())
     },
     hash: ref => {
-
+        if(objects.exists(ref)){
+            return ref;
+        }
         const refFile = refs.resolveRef(ref);
-        return fs.readFileSync(nodepath.join(files.getGitdouPath(), refFile), 'utf8');
+        const prefix = objects.exists(ref)?nodepath.join(files.getGitdouPath(),'objects'):files.getGitdouPath();
+        return fs.readFileSync(nodepath.join(prefix, refFile), 'utf8');
     },
     getRemoteHash: (remoteUrl, branch)=> {
         return util.onRemote(remoteUrl)(refs.hash, branch);
@@ -333,7 +340,17 @@ const util = {
             process.chdir(oldWorkspace);
             return result;
         }
-    }
+    },
+    setIn: function(obj, arr) {
+        if (arr.length === 2) {
+            obj[arr[0]] = arr[1];
+        } else if (arr.length > 2) {
+            obj[arr[0]] = obj[arr[0]] || {};
+            util.setIn(obj[arr[0]], arr.slice(1));
+        }
+
+        return obj;
+    },
 }
 
 const diff = {
