@@ -68,6 +68,9 @@ const gitdou = {
             branch + " -> " + remote + "/" + branch].join("\n") + "\n";
 
     },
+    merge: (ref) => {
+
+    },
     write_tree: () => {
         const idx = index.read(false);
         const tree = files.nestFlatTree(idx);
