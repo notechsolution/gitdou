@@ -53,7 +53,19 @@ const gitdou = {
         cfg['remote'][name] = path;
         config.write(cfg);
     },
-    fetch : () => {
+    fetch : (remote, branch) => {
+        const remoteUrl = config.read()['remote'][remote];
+        const remoteHash = refs.getRemoteHash(remoteUrl, branch);
+
+        const remoteObjects = refs.getRemoteObjects(remoteUrl);
+        _.each(remoteObjects, content => objects.write(content));
+
+        refs.updateRef({updateToRef:refs.getRemoteRef(remote, branch), hash:remoteHash});
+        refs.write("FETCH_HEAD", `${remoteHash} branch '${branch}' of ${remoteUrl}`);
+
+        return ["From " + remoteUrl,
+            "Count " + remoteObjects.length,
+            branch + " -> " + remote + "/" + branch].join("\n") + "\n";
 
     },
     write_tree: () => {
@@ -242,6 +254,9 @@ const objects = {
         const flattenObject = files.flattenTree(fileTree);
         // console.log(`flattenObject:${JSON.stringify(flattenObject)}`);
         return flattenObject;
+    },
+    allObjects : () => {
+        return fs.readdirSync(nodepath.join(files.getGitdouPath(), 'objects')).map(objects.read);
     }
 }
 
@@ -254,17 +269,33 @@ const refs = {
         if (ref === 'HEAD') {
             const matched = fs.readFileSync(nodepath.join(files.getGitdouPath(), ref), 'utf8').match('ref: (refs/heads/.+)');
             return matched[1];
+        } else if (refs.isValidRef(ref)){
+            return ref;
         } else {
             return `refs/heads/${ref}`;
         }
     },
+    isValidRef: ref => {
+      return _.startsWith(ref, 'refs/heads/') || _.startsWith(ref, 'refs/remotes/');
+    },
+
     write: (path, content) => {
-        const target = nodepath.join(files.getGitdouPath(), path);
-        fs.writeFileSync(target, content);
+        const tree = _.set({},path.split("/").join('.'),content);
+        files.writeFilesFromTree(tree,files.getGitdouPath())
     },
     hash: ref => {
+
         const refFile = refs.resolveRef(ref);
         return fs.readFileSync(nodepath.join(files.getGitdouPath(), refFile), 'utf8');
+    },
+    getRemoteHash: (remoteUrl, branch)=> {
+        return util.onRemote(remoteUrl)(refs.hash, branch);
+    },
+    getRemoteObjects : (remoteUrl) => {
+        return util.onRemote(remoteUrl)(objects.allObjects)
+    },
+    getRemoteRef: (remote, branch) => {
+        return `refs/remotes/${remote}/${branch}`;
     }
 }
 const util = {
@@ -289,8 +320,17 @@ const util = {
     },
     lines: content => {
         return content.split('\n').filter(line => line !== '');
+    },
+    onRemote: remoteUrl => {
+        // ES6 function define here not work, fn => {}
+        return function (fn) {
+            const oldWorkspace = process.cwd();
+            process.chdir(remoteUrl);
+            const result = fn.apply(null, Array.prototype.slice.call(arguments,1));
+            process.chdir(oldWorkspace);
+            return result;
+        }
     }
-
 }
 
 const diff = {

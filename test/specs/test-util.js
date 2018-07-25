@@ -81,11 +81,17 @@ var testUtil = module.exports = {
   },
 
   makeRemoteRepo: function() {
-    process.chdir("../");
-    fs.mkdirSync("sub");
-    process.chdir("sub");
-    fs.mkdirSync("repo2");
-    process.chdir("repo2");
+    try{
+        process.chdir("../");
+        fs.existsSync("sub") && testUtil.rmdirSyncRecursive("sub")
+        fs.mkdirSync("sub");
+        process.chdir("sub");
+        fs.mkdirSync("repo2");
+        process.chdir("repo2");
+    }catch (e) {
+        console.error(e);
+    }
+
     return process.cwd();
   },
 
