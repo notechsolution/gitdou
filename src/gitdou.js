@@ -74,9 +74,19 @@ const gitdou = {
         const receiverHash = refs.hash('HEAD');
         const giverHash = refs.hash(ref);
         if(merger.canFastForward({receiverHash, giverHash})){
+            merger.writeFastForwardMerge({receiverHash, giverHash});
+
             return 'Fast-forward';
         }
         return 'Non Fast Foward, not handle now';
+    },
+    push: ref => {
+        const onRemote = util.onRemote(remoteUrl);
+        const remoteUrl = config.read()['remote'][ref];
+        const receiverHash = onRemote(refs.hash, ref);
+        const giverHash = refs.hash('HEAD');
+        objects.allObjects().forEach(item => onRemote(objects.write, item));
+        onRemote(gitdou.updateRef, refs.resolveRef(ref), giverHash);
     },
     write_tree: () => {
         const idx = index.read(false);
@@ -490,7 +500,14 @@ const config = {
 const merger = {
     canFastForward: ({receiverHash, giverHash}) => {
         const ancestors = objects.ancestors(giverHash);
-        console.log(`ancestors:${JSON.stringify(ancestors)} receiverHash:${receiverHash}`)
         return _.includes(ancestors, receiverHash);
+    },
+    writeFastForwardMerge: ({receiverHash, giverHash})=> {
+        const diffs = diff.diff(receiverHash, giverHash);
+        workingCopy.write(diffs);
+        refs.updateRef({updateToRef:'HEAD',hash:giverHash});
+        const giverContent = objects.commitToContent(giverHash);
+        const giverIndex = _.mapKeys(giverContent, (value, key) => `${key} 0`);
+        index.write(giverIndex);
     }
 }
