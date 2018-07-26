@@ -16,7 +16,7 @@ test('git.init() should create all related files under /.gitdou', t => {
     t.true(fs.existsSync(`${__dirname}/testdata/initRepo/.gitdou`));
     t.true(fs.existsSync(`${__dirname}/testdata/initRepo/.gitdou/objects/`));
     t.true(fs.existsSync(`${__dirname}/testdata/initRepo/.gitdou/refs/heads/`));
-    t.is(fs.readFileSync(`${__dirname}/testdata/initRepo/.gitdou/HEAD`,'utf-8'), 'ref: refs/heads/master\n');
+    t.is(fs.readFileSync(`${__dirname}/testdata/initRepo/.gitdou/HEAD`,'utf-8'), 'ref: refs/heads/master');
     t.is(fs.readFileSync(__dirname + "/testData/initRepo/.gitdou/config",'utf-8'),
        "{\n" +
         "  \"core\": {\n" +
@@ -31,7 +31,7 @@ test('git.init() should not crash when call twice', t => {
     t.true(fs.existsSync(`${__dirname}/testdata/initRepo/.gitdou`));
     t.true(fs.existsSync(`${__dirname}/testdata/initRepo/.gitdou/objects/`));
     t.true(fs.existsSync(`${__dirname}/testdata/initRepo/.gitdou/refs/heads/`));
-    t.is(fs.readFileSync(`${__dirname}/testdata/initRepo/.gitdou/HEAD`,'utf-8'), 'ref: refs/heads/master\n');
+    t.is(fs.readFileSync(`${__dirname}/testdata/initRepo/.gitdou/HEAD`,'utf-8'), 'ref: refs/heads/master');
     t.is(fs.readFileSync(__dirname + "/testData/initRepo/.gitdou/config",'utf-8'),
         "{\n" +
         "  \"core\": {\n" +
